@@ -1,9 +1,50 @@
 package study.datajpa.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member,Long> {
 
+    //순수 jpa에서 쿼리를 작성 했던 부분을 메소드 이름으로 쿼리 생성
+    //단점 -> 함수 명이 너무 길어짐, 파라미터가 2개 정도면 그냥 작성, 그 이상은 쿼리 직접 작성?
+    List<Member> findByUserNameAndAgeGreaterThan(String userName, int age);
 
+    //조건을 적지 않으면 전체 조회 -> where 절 없이 전체조회
+    //Top3 -> 3개
+    List<Member> findTop3HelloBy();
+
+    //NamedQuery
+    //함수명으로 도메인.name을 우선 찾고 없으면 메서드 이름으로 쿼리를 생성.
+    //namedQuery의 장점 -> 잘못 입력한 쿼리에 대해서 로딩시점에 파싱하며 에러 확인 가능
+    //@Query(name = "Member.findByUserName") //선언하지 않아도 동작
+    List<Member> findByUserName(@Param("userName") String userName);
+
+    //쿼리 바로 작성 가능 -> 실무에서 많이 사용
+    //로딩시점에 에러 확인 가능
+    //이름이 없는 namedQuery라고 생각하면 됨
+    @Query("select m from Member m where m.userName =:userName and m.age = :age")
+    List<Member> findUser(@Param("userName") String userName, @Param("age") int age);
+
+    @Query("select m.userName from Member m")
+    List<String> findUserNameList();
+
+    //dto 조회 -> new 사용(전체 경로)
+    @Query("select new study.datajpa.dto.MemberDto(m.id, m.userName, t.name) from Member m join m.team t")
+    List<MemberDto> findMemberDto();
+
+    //파라미터 바인딩 -> 리스트 in절로
+    @Query("select m from Member m where m.userName in :names")
+    List<Member> findByNames(@Param("names") Collection<String> names);
+
+    //반환 타입
+    List<Member> findListByUserName(String userName);   //컬렉션
+    Member findMemberByUserName(String userName);   //단건
+    Optional<Member> findOptionalByUserName(String userName);   //optioanl
 }
