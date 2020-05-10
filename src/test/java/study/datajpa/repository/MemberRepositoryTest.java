@@ -3,6 +3,10 @@ package study.datajpa.repository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -202,5 +206,40 @@ class MemberRepositoryTest {
         //따라서 8버전 부터는 Optional로 조회하는 것이 좋음
         Optional<Member> optionalMember = memberRepository.findOptionalByUserName("asdfsdf");
         System.out.println("optionalMember = " + optionalMember);
+    }
+
+    @Test
+    public void paging() {
+
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        //page 0부터 시작
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "userName"));
+        int age = 10;
+
+        //when
+        //페이징 + total
+        //반환 타입에 따라 total count를 날릴지 말지 결정됨
+        Page<Member> page = memberRepository.findByAge(age, pageRequest);
+
+        //dto 변환
+        Page<MemberDto> map = page.map( m -> new MemberDto(m.getId(), m.getUserName(), null));
+
+        //then
+        //slice는 3개 요청하면 +1 해서 4개를 요청해봄
+        List<Member> content1 = page.getContent();
+        long totalElements = page.getTotalElements();
+
+        assertThat(content1.size()).isEqualTo(3);
+        assertThat(totalElements).isEqualTo(5);
+        assertThat(page.getNumber()).isEqualTo(0);   //페이지 번호
+        assertThat(page.getTotalPages()).isEqualTo(2);  //전체 페이지수
+        assertThat(page.isFirst()).isTrue();    //첫번재 페이지냐??
+        assertThat(page.hasNext()).isTrue();    //다음 페이지가 있냐??
     }
 }
