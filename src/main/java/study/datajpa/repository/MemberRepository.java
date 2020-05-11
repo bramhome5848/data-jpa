@@ -4,7 +4,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
@@ -64,4 +66,31 @@ public interface MemberRepository extends JpaRepository<Member,Long> {
     //Slice<Member> findByAge(int age, Pageable pageable); //count 쿼리 사용 안 함
     //List<Member> findByAge(int age, Pageable pageable); //count 쿼리 사용 안함 -> 단순 페이징
     //List<Member> findByAge(int age, Sort sort); //단순 sorting
+
+    //bulkupdate
+    //@Modifying이 있어야 JPA excuteUpdate()가 실행됨
+    @Modifying(clearAutomatically = true)
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
+
+    //fetch join
+    @Query("select m from Member m left join fetch m.team")
+    List<Member> findMemberFetchJoin();
+
+    //공통 메서드 오버라이드
+    @Override
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findAll();
+
+    //JPQL + 엔티티 그래프
+    @EntityGraph(attributePaths = {"team"}) @Query("select m from Member m")
+    List<Member> findMemberEntityGraph();
+
+    //메서드 이름으로 쿼리에서 특히 편리하다.
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findEntityGraphByUserName(@Param("userName") String userName);
+
+    //named EntityGraph 사용
+    @EntityGraph("Member.all")
+    List<Member> findEntityGraph2ByUserName(@Param("userName") String userName);
 }

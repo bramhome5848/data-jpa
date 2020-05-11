@@ -7,12 +7,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.repository.query.Param;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +31,10 @@ class MemberRepositoryTest {
     @Autowired MemberRepository memberRepository;
 
     @Autowired TeamRepository teamRepository;
+
+    @PersistenceContext
+    EntityManager em;
+
 
     @Test
     public void testMember() {
@@ -241,5 +248,66 @@ class MemberRepositoryTest {
         assertThat(page.getTotalPages()).isEqualTo(2);  //전체 페이지수
         assertThat(page.isFirst()).isTrue();    //첫번재 페이지냐??
         assertThat(page.hasNext()).isTrue();    //다음 페이지가 있냐??
+    }
+
+    @Test
+    public void bulkUpdate() throws Exception {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+
+        //when
+        // 벌크 업데이트도 쿼리 종류이므로 이전 영속성에 쌓여있는 쿼리는 실행된 이후 해당 쿼리 실행
+        // 벌크 연산은 영속성 컨텍스트를 무시하고 실행
+        // 영속성 컨텍스트에 있는 엔티티의 상태와 DB에 엔티티 상태가 달라질 수 있다.
+        int resultCount = memberRepository.bulkAgePlus(20);
+
+        //영속성 컨텍스트와 디비 간의 데이터 일치를 위해서
+        //em.clear() -> @Modifying(clearAutomatically = false)
+        List<Member> result = memberRepository.findByUserName("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 = " + member5);
+
+
+        //then -> 업데이트 된 데이터 수 리턴됨
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+    @Test
+    public void findMemberLazy() {
+        //given
+        //member1 -> teamA
+        //member2 -> teamB
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2); //saveAndFlush()로 변경 가능
+
+        em.flush();  //Spring data Jpa -> Repository.flush() 있음
+        em.clear();  //
+
+        //when
+        //select Member
+        //List<Member> members = memberRepository.findAll();
+        //List<Member> members = memberRepository.findMemberFetchJoin();
+        //List<Member> members = memberRepository.findEntityGraphByUserName("member1");
+        List<Member> members = memberRepository.findEntityGraph2ByUserName("member1");
+
+        for (Member member : members) {
+            System.out.println("member = " + member.getUserName());
+            System.out.println("member.teamClass = " + member.getTeam().getClass());
+            System.out.println("member.team = " + member.getTeam().getName());
+        }
     }
 }
