@@ -310,4 +310,35 @@ class MemberRepositoryTest {
             System.out.println("member.team = " + member.getTeam().getName());
         }
     }
+
+    @Test
+    public void queryHint() {
+        //givn
+        Member member1 = memberRepository.save(new Member("member1", 10));
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        // -> 일반 조회의 경우 초기 데이터의 스냅샷과 변경될 객체에 대한 메모리를 둘 다 사용하게 됨
+        // -> 최적화를 위해 조회만 할 경우 -> jpa hint 사용
+        Member findMember = memberRepository.findReadOnlyByUserName("member1");
+        findMember.setUserName("member2");  // read only -> 스냅샷을 만들지 않음 -> 변경해도 업데이트 되지 않음
+
+        em.flush();
+    }
+
+    @Test
+    public void lock() {
+
+        //givn
+        Member member1 = memberRepository.save(new Member("member1", 10));
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        List<Member> result = memberRepository.findLockByUserName("member1");
+        //for update
+    }
 }
