@@ -341,4 +341,10 @@ class MemberRepositoryTest {
         List<Member> result = memberRepository.findLockByUserName("member1");
         //for update
     }
+
+    //사용자가 정의한 repository 구현
+    @Test
+    public void callCustom() {
+        List<Member> result = memberRepository.findMemberCustom();
+    }
 }
