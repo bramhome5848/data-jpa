@@ -11,7 +11,13 @@ spring:
       hibernate:
         #show_sql: true   #logging쪽과 차이점은 show-sql은 systemout으로 출력, logging은 log로
         format_sql: true
+  data:
+    web:
+      pageable:
+        default-page-size: 20 # 기본 페이지 사이즈 -> 글로벌 설정 -> 각 함수의 특별설정이 우선시 됨
+        max-page-size: 2000   # 최대 페이지 사이즈 -> 글로벌 설정
 
 logging.level:
   org.hibernate.SQL: debug    #jpa/hibernate 가 생성하는 모든 sql을 눈으로 확인가능
   #org.hibernate.type: trace   #SQL 실행 파라미터를 로그로 남긴다
+
