@@ -1,12 +1,11 @@
 package study.datajpa.repository;
 
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.repository.query.Param;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
@@ -358,5 +357,154 @@ class MemberRepositoryTest {
      * 그래서 스프링 데이터 JPA를 사용할 때 트랜잭션이 없어도 데이터 등록, 변경이 가능했음(사실은 트랜 잭션이 리포지토리 계층에 걸려있는 것임)
      * 데이터를 단순히 조회만 하고 변경하지 않는 트랜잭션에서 readOnly = true 옵션을 사용하면 플러 시를 생략해서 약간의 성능 향상을 얻을 수 있음
      */
+
+    //specifications 사용(Criteria)
+    //실무에서는 사용하지 않는 것이 좋다
+    //대신에 QueryDsl을 사용하자
+    //동적 쿼리 문제를 해결하기 위함인데 Criteria자체가 직관적이지 않음
+    @Test
+    public void specBasic() {
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        //when
+
+        Specification<Member> spec = MemberSpec.userName("m1").and(MemberSpec.teamName("teamA"));
+        List<Member> result = memberRepository.findAll(spec);
+
+        //then
+        assertThat(result.size()).isEqualTo(1);
+
+    }
+
+    //query by Example
+    //조인은 가능하지만 내부 조인(INNER JOIN)만 가능함 외부 조인(LEFT JOIN) 안됨
+    //중첨 제약조건 안됨
+    //매칭 조건이 매우 단순함
+    //실무에서 사용하기에는 매칭 조건이 너무 단순하고, LEFT 조인이 안됨 실무에서는 QueryDSL을 사용하자
+    @Test
+    public void queryByExample() {
+
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        //when
+        //Probe 생성
+        //엔티티 자체가 검색조건이 됨
+        Member member = new Member("m1");
+        Team team = new Team("teamA"); //내부조인으로 teamA 가능
+        member.setTeam(team);
+
+        //ExampleMatcher 생성, age 프로퍼티는 무시
+        //null값은 무시 되기 때문에 where절에 포함되지 않음
+        ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("age");
+        Example<Member> example = Example.of(member, matcher);
+        List<Member> result = memberRepository.findAll(example);
+
+        //then
+        assertThat(result.size()).isEqualTo(1);
+
+    }
+
+    //projection
+    @Test
+    public void projections() throws Exception {
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        //when
+        //SQL에서도 select절에서 userName만 조회(Projection)하는 것을 확인
+        List<UserNameOnly> result = memberRepository.findProjectionsByUserName("m1");
+
+        //then
+         Assertions.assertThat(result.size()).isEqualTo(1);
+    }
+
+    //클래스 기반 Projection
+    @Test
+    public void projectionsDto() throws Exception {
+
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        //when
+        //List<UserNameOnlyDto> result = memberRepository.findProjectionsDtoByUserName("m1");
+        //동적으로 프로젝션 데이터 번경 가능
+        List<UserNameOnlyDto> result = memberRepository.findProjectionsDtoByUserName("m1", UserNameOnlyDto.class);
+
+        //then
+        for (UserNameOnlyDto userNameOnlyDto : result) {
+            System.out.println("userNameOnlyDto.getUserName() = " + userNameOnlyDto.getUserName());
+        }
+    }
+
+    /**
+     * 프로젝션 대상이 root 엔티티면, JPQL SELECT 절 최적화 가능 프로젝션 대상이 ROOT가 아니면
+     * LEFT OUTER JOIN 처리
+     * 모든 필드를 SELECT해서 엔티티로 조회한 다음에 계산
+     * 프로젝션 대상이 root 엔티티면 유용하다.
+     * 프로젝션 대상이 root 엔티티를 넘어가면 JPQL SELECT 최적화가 안된다! 실무의 복잡한 쿼리를 해결하기에는 한계가 있다.
+     * 실무에서는 단순할 때만 사용하고, 조금만 복잡해지면 QueryDSL을 사용하자
+     */
+    @Test
+    public void nestedClosedProjectionsTest() {
+
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        //when
+        //중첩 구조에 대한 projection
+        List<NestedClosedProjections> result = memberRepository.findProjectionsDtoByUserName("m1", NestedClosedProjections.class);
+
+        //then
+        for (NestedClosedProjections nestedClosedProjections : result) {
+            System.out.println("nestedClosedProjections = " + nestedClosedProjections);
+        }
+    }
 
 }

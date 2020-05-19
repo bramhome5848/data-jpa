@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 
-public interface MemberRepository extends JpaRepository<Member,Long>, MemberRepositoryCustom {
+public interface MemberRepository extends JpaRepository<Member,Long>, MemberRepositoryCustom, JpaSpecificationExecutor<Member> {
 
     //순수 jpa에서 쿼리를 작성 했던 부분을 메소드 이름으로 쿼리 생성
     //단점 -> 함수 명이 너무 길어짐, 파라미터가 2개 정도면 그냥 작성, 그 이상은 쿼리 직접 작성?
@@ -101,4 +101,10 @@ public interface MemberRepository extends JpaRepository<Member,Long>, MemberRepo
     //수행중 lock을 거는 것
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Member> findLockByUserName(String userName);
+
+    //projection
+    List<UserNameOnly> findProjectionsByUserName(String userName);
+
+    <T> List<T> findProjectionsDtoByUserName(String userName, Class<T> type);
+
 }
