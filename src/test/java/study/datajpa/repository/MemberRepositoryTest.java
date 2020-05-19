@@ -507,4 +507,54 @@ class MemberRepositoryTest {
         }
     }
 
+    //native query test
+    @Test
+    public void nativeQuery() {
+
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        //when
+        Member result = memberRepository.findByNativeQuery("m1");
+        System.out.println("result = " + result);
+    }
+
+    //스프링 데이터 JPA 네이티브 쿼리 + 인터페이스 기반 Projections 활용
+    @Test
+    public void nativeQueryAndProjections() {
+
+        //given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        //when
+        Page<MemberProjection> result = memberRepository.findByNativeProjection(PageRequest.of(0, 10));
+        List<MemberProjection> content = result.getContent();
+
+        //then
+        System.out.println("content.size() = " + content.size());
+        for (MemberProjection memberProjection : content) {
+            System.out.println("memberProjection.getUserName() = " + memberProjection.getUserName());
+            System.out.println("memberProjection.getTeamName() = " + memberProjection.getTeamName());
+        }
+
+    }
+
 }
